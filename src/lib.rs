@@ -66,8 +66,9 @@ pub trait StrategyContract {
             .esdt_local_mint(&token, 0, &payment.amount)
             .sync_call();
 
-        let minted_payment = EsdtTokenPayment::new(token, 0, payment.amount);
+        let minted_payment = EsdtTokenPayment::new(token, 0, payment.amount.clone());
 
+        self.tx().to(&entity).esdt(payment).transfer();
         self.tx().to(&caller).esdt(minted_payment).transfer();
     }
 
