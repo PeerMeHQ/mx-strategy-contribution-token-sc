@@ -11,4 +11,4 @@ authors = ["Micha Vie <micha@peerme.io>", "PeerMe <hello@peerme.io>"]
 path = ".."
 
 [dependencies.multiversx-sc-meta]
-version = "0.50.0"
+version = "0.50.3"
