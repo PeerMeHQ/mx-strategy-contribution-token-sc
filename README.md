@@ -1,5 +1,11 @@
 # Contribute Token Strategy for DAOs
 
+[![Spawnable Contract Badge for Mainnet](https://api.spawnable.io/badges/contracts/strategy-contribution-token?network=mainnet)](https://spawnable.io/contracts/strategy-contribution-token)
+
+[![Spawnable Contract Badge for Testnet](https://api.spawnable.io/badges/contracts/strategy-contribution-token?network=testnet)](https://spawnable.io/contracts/strategy-contribution-token)
+
+[![Spawnable Contract Badge for Devnet](https://api.spawnable.io/badges/contracts/strategy-contribution-token?network=devnet)](https://spawnable.io/contracts/strategy-contribution-token)
+
 Enables users to contribute funds to registered apps, which can be DAOs, and receive a proportional amount of receipt tokens. These tokens can be used in DAO systems like PeerMe for voting and fair ownership distribution.
 
 ## Key Features
