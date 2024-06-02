@@ -1,54 +1,24 @@
-multiversx_sc::imports!();
+use multiversx_sc_scenario::imports::*;
 
-use multiversx_sc_scenario::testing_framework::*;
-use multiversx_sc_scenario::*;
-use strategy_token::*;
+pub const OWNER_ADDRESS: TestAddress = TestAddress::new("owner");
+pub const STRATEGY_ADDRESS: TestSCAddress = TestSCAddress::new("strategy");
+pub const CODE_PATH: MxscPath = MxscPath::new("output/adder.mxsc.json");
 
-pub const WASM_PATH: &'static str = "output/strategy.wasm";
+pub fn blockchain() -> ScenarioWorld {
+    let mut blockchain = ScenarioWorld::new();
+    blockchain.register_contract(CODE_PATH, strategy_token::ContractBuilder);
 
-#[allow(dead_code)]
-pub struct Setup<ObjBuilder>
-where
-    ObjBuilder: 'static + Copy + Fn() -> strategy_token::ContractObj<DebugApi>,
-{
-    pub blockchain: BlockchainStateWrapper,
-    pub owner_address: Address,
-    pub user_address: Address,
-    pub resolver_address: Address,
-    pub contract: ContractObjWrapper<strategy_token::ContractObj<DebugApi>, ObjBuilder>,
+    blockchain
 }
 
-impl<ObjBuilder> Setup<ObjBuilder>
-where
-    ObjBuilder: 'static + Copy + Fn() -> strategy_token::ContractObj<DebugApi>,
-{
-    pub fn new(builder: ObjBuilder) -> Self {
-        let rust_zero = rust_biguint!(0u64);
-        let mut blockchain = BlockchainStateWrapper::new();
-        let owner_address = blockchain.create_user_account(&rust_zero);
-        let user_address = blockchain.create_user_account(&rust_zero);
-        let resolver_address = blockchain.create_user_account(&rust_zero);
-        let contract = blockchain.create_sc_account(&rust_zero, Some(&owner_address), builder, WASM_PATH);
+pub struct TestContract {
+    pub chain: ScenarioWorld,
+}
 
-        blockchain
-            .execute_tx(&owner_address, &contract, &rust_zero, |sc| {
-                sc.init();
-            })
-            .assert_ok();
+impl TestContract {
+    pub fn new() -> Self {
+        let chain = blockchain();
 
-        Setup {
-            blockchain,
-            owner_address,
-            user_address,
-            resolver_address,
-            contract,
-        }
+        Self { chain }
     }
-}
-
-#[test]
-fn it_initializes_the_contract() {
-    let mut setup = Setup::new(strategy - token::contract_obj);
-
-    setup.blockchain.execute_query(&setup.contract, |_| {}).assert_ok();
 }
