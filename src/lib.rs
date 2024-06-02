@@ -1,7 +1,11 @@
 #![no_std]
 
+use errors::{ERR_CONTRACT_INVALID_ADDRESS, ERR_ENTITY_NOT_REGISTERED, ERR_ENTITY_REGISTERED_ALREADY, ERR_PAYMENT_ZERO, ERR_TOKEN_INVALID, ERR_TOKEN_INVALID_ID, ERR_TOKEN_NOT_ISSUED};
+
 multiversx_sc::imports!();
 multiversx_sc::derive_imports!();
+
+pub mod errors;
 
 const TOKEN_DECIMALS: usize = 18;
 
@@ -21,17 +25,18 @@ pub trait StrategyContract {
     #[upgrade]
     fn upgrade(&self) {}
 
+    /// Registers the entity smart contract and issues a new fungible token.
     #[payable("*")]
     #[endpoint(register)]
     fn register_endpoint(&self, token_name: ManagedBuffer, token_ticker: ManagedBuffer, accepted_token: TokenIdentifier) {
-        require!(accepted_token.is_valid_esdt_identifier(), "invalid token id");
+        require!(accepted_token.is_valid_esdt_identifier(), ERR_TOKEN_INVALID_ID);
 
         let payment = self.call_value().egld_value().clone_value();
-        require!(payment > 0, "must be more than 0");
+        require!(payment > 0, ERR_PAYMENT_ZERO);
 
         let entity = self.blockchain().get_caller();
-        require!(self.blockchain().is_smart_contract(&entity), "not a contract");
-        require!(self.entity_infos(&entity).is_empty(), "already registered");
+        require!(self.blockchain().is_smart_contract(&entity), ERR_CONTRACT_INVALID_ADDRESS);
+        require!(self.entity_infos(&entity).is_empty(), ERR_ENTITY_REGISTERED_ALREADY);
 
         self.entity_infos(&entity).set(EntityInfo {
             accepted_token,
@@ -47,16 +52,18 @@ pub trait StrategyContract {
             .async_call_and_exit();
     }
 
+    /// Forwards payments to the entity smart contract and mints the token proportionally to the payment amount.
+    /// Minted tokens are then transferred to the caller.
     #[payable("*")]
     #[endpoint(participate)]
     fn participate_endpoint(&self, entity: ManagedAddress) {
         let caller = self.blockchain().get_caller();
         let entity_info = self.get_entity_info_or_fail(&entity);
-        require!(entity_info.token.is_some(), "token not issued");
+        require!(entity_info.token.is_some(), ERR_TOKEN_NOT_ISSUED);
 
         let payment = self.call_value().single_esdt();
-        require!(payment.amount > 0, "must be more than 0");
-        require!(payment.token_identifier == entity_info.accepted_token, "invalid token");
+        require!(payment.amount > 0, ERR_PAYMENT_ZERO);
+        require!(payment.token_identifier == entity_info.accepted_token, ERR_TOKEN_INVALID);
 
         let token = entity_info.token.unwrap();
 
@@ -86,7 +93,7 @@ pub trait StrategyContract {
     }
 
     fn get_entity_info_or_fail(&self, address: &ManagedAddress) -> EntityInfo<Self::Api> {
-        require!(!self.entity_infos(address).is_empty(), "entity not found");
+        require!(!self.entity_infos(address).is_empty(), ERR_ENTITY_NOT_REGISTERED);
 
         self.entity_infos(address).get()
     }
