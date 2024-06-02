@@ -30,9 +30,6 @@ pub trait StrategyContract {
     #[payable("*")]
     #[endpoint(registerApp)]
     fn register_app_endpoint(&self, contribution_token: TokenIdentifier, receipt_token_name: ManagedBuffer, receipt_token_ticker: ManagedBuffer) {
-        // TODO: remove later
-        self.app_infos(&self.blockchain().get_caller()).clear();
-
         require!(contribution_token.is_valid_esdt_identifier(), ERR_TOKEN_INVALID_ID);
 
         let payment = self.call_value().egld_value().clone_value();
