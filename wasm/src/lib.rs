@@ -16,7 +16,7 @@ multiversx_sc_wasm_adapter::allocator!();
 multiversx_sc_wasm_adapter::panic_handler!();
 
 multiversx_sc_wasm_adapter::endpoints! {
-    strategy_token
+    strategy_contribution_token
     (
         init => init
         upgrade => upgrade
@@ -25,4 +25,4 @@ multiversx_sc_wasm_adapter::endpoints! {
     )
 }
 
-multiversx_sc_wasm_adapter::async_callback! { strategy_token }
+multiversx_sc_wasm_adapter::async_callback! { strategy_contribution_token }

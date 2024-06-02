@@ -1,5 +1,5 @@
 [package]
-name = "strategy-token-meta"
+name = "strategy-contribution-token-meta"
 version = "0.1.0"
 edition = "2018"
 publish = false
@@ -7,7 +7,7 @@ authors = ["Micha Vie <micha@peerme.io>", "PeerMe <hello@peerme.io>"]
 
 [dev-dependencies]
 
-[dependencies.strategy-token]
+[dependencies.strategy-contribution-token]
 path = ".."
 
 [dependencies.multiversx-sc-meta]
