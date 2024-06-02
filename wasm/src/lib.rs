@@ -20,7 +20,7 @@ multiversx_sc_wasm_adapter::endpoints! {
     (
         init => init
         upgrade => upgrade
-        register => register_endpoint
+        registerApp => register_app_endpoint
         participate => participate_endpoint
     )
 }

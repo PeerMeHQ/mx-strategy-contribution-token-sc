@@ -1,20 +1,21 @@
 #![no_std]
 
-use errors::{ERR_CONTRACT_INVALID_ADDRESS, ERR_ENTITY_NOT_REGISTERED, ERR_ENTITY_REGISTERED_ALREADY, ERR_PAYMENT_ZERO, ERR_TOKEN_INVALID, ERR_TOKEN_INVALID_ID, ERR_TOKEN_NOT_ISSUED};
+use errors::{ERR_APP_NOT_REGISTERED, ERR_APP_REGISTERED_ALREADY, ERR_PAYMENT_ZERO, ERR_TOKEN_INVALID, ERR_TOKEN_INVALID_ID, ERR_TOKEN_NOT_ISSUED};
 
 multiversx_sc::imports!();
 multiversx_sc::derive_imports!();
 
 pub mod errors;
+pub mod strategy_contribution_token_proxy;
 
 const TOKEN_DECIMALS: usize = 18;
 
 #[type_abi]
 #[derive(TopEncode, TopDecode, NestedEncode, NestedDecode)]
-pub struct EntityInfo<M: ManagedTypeApi> {
-    pub accepted_token: TokenIdentifier<M>,
-    pub token: Option<TokenIdentifier<M>>,
-    pub token_supply: BigUint<M>,
+pub struct AppInfo<M: ManagedTypeApi> {
+    pub contribution_token: TokenIdentifier<M>,
+    pub receipt_token: Option<TokenIdentifier<M>>,
+    pub receipt_token_supply: BigUint<M>,
 }
 
 #[multiversx_sc::contract]
@@ -27,27 +28,26 @@ pub trait StrategyContract {
 
     /// Registers the entity smart contract and issues a new fungible token.
     #[payable("*")]
-    #[endpoint(register)]
-    fn register_endpoint(&self, token_name: ManagedBuffer, token_ticker: ManagedBuffer, accepted_token: TokenIdentifier) {
-        require!(accepted_token.is_valid_esdt_identifier(), ERR_TOKEN_INVALID_ID);
+    #[endpoint(registerApp)]
+    fn register_app_endpoint(&self, contribution_token: TokenIdentifier, receipt_token_name: ManagedBuffer, receipt_token_ticker: ManagedBuffer) {
+        require!(contribution_token.is_valid_esdt_identifier(), ERR_TOKEN_INVALID_ID);
 
         let payment = self.call_value().egld_value().clone_value();
         require!(payment > 0, ERR_PAYMENT_ZERO);
 
         let entity = self.blockchain().get_caller();
-        require!(self.blockchain().is_smart_contract(&entity), ERR_CONTRACT_INVALID_ADDRESS);
-        require!(self.entity_infos(&entity).is_empty(), ERR_ENTITY_REGISTERED_ALREADY);
+        require!(self.app_infos(&entity).is_empty(), ERR_APP_REGISTERED_ALREADY);
 
-        self.entity_infos(&entity).set(EntityInfo {
-            accepted_token,
-            token: Option::None,
-            token_supply: BigUint::zero(),
+        self.app_infos(&entity).set(AppInfo {
+            contribution_token,
+            receipt_token: Option::None,
+            receipt_token_supply: BigUint::zero(),
         });
 
         self.tx()
             .to(ESDTSystemSCAddress)
             .typed(ESDTSystemSCProxy)
-            .issue_and_set_all_roles(payment, token_name, token_ticker, EsdtTokenType::Fungible, TOKEN_DECIMALS)
+            .issue_and_set_all_roles(payment, receipt_token_name, receipt_token_ticker, EsdtTokenType::Fungible, TOKEN_DECIMALS)
             .callback(self.callbacks().token_issue_callback(&entity))
             .async_call_and_exit();
     }
@@ -58,14 +58,14 @@ pub trait StrategyContract {
     #[endpoint(participate)]
     fn participate_endpoint(&self, entity: ManagedAddress) {
         let caller = self.blockchain().get_caller();
-        let entity_info = self.get_entity_info_or_fail(&entity);
-        require!(entity_info.token.is_some(), ERR_TOKEN_NOT_ISSUED);
+        let entity_info = self.get_app_info_or_fail(&entity);
+        require!(entity_info.receipt_token.is_some(), ERR_TOKEN_NOT_ISSUED);
 
         let payment = self.call_value().single_esdt();
         require!(payment.amount > 0, ERR_PAYMENT_ZERO);
-        require!(payment.token_identifier == entity_info.accepted_token, ERR_TOKEN_INVALID);
+        require!(payment.token_identifier == entity_info.contribution_token, ERR_TOKEN_INVALID);
 
-        let token = entity_info.token.unwrap();
+        let token = entity_info.receipt_token.unwrap();
 
         self.tx()
             .to(ToSelf)
@@ -84,18 +84,18 @@ pub trait StrategyContract {
     fn token_issue_callback(&self, entity: &ManagedAddress, #[call_result] result: ManagedAsyncCallResult<TokenIdentifier>) {
         match result {
             ManagedAsyncCallResult::Ok(token_id) => {
-                let mut entity_info = self.get_entity_info_or_fail(&entity);
-                entity_info.token = Option::Some(token_id);
-                self.entity_infos(&entity).set(entity_info);
+                let mut entity_info = self.get_app_info_or_fail(&entity);
+                entity_info.receipt_token = Option::Some(token_id);
+                self.app_infos(&entity).set(entity_info);
             }
             ManagedAsyncCallResult::Err(_) => self.send_received_egld(&entity),
         }
     }
 
-    fn get_entity_info_or_fail(&self, address: &ManagedAddress) -> EntityInfo<Self::Api> {
-        require!(!self.entity_infos(address).is_empty(), ERR_ENTITY_NOT_REGISTERED);
+    fn get_app_info_or_fail(&self, address: &ManagedAddress) -> AppInfo<Self::Api> {
+        require!(!self.app_infos(address).is_empty(), ERR_APP_NOT_REGISTERED);
 
-        self.entity_infos(address).get()
+        self.app_infos(address).get()
     }
 
     fn send_received_egld(&self, to: &ManagedAddress) {
@@ -108,6 +108,6 @@ pub trait StrategyContract {
     #[storage_mapper("members")]
     fn members(&self, address: &ManagedAddress) -> MapMapper<ManagedAddress, BigUint>;
 
-    #[storage_mapper("entity_infos")]
-    fn entity_infos(&self, address: &ManagedAddress) -> SingleValueMapper<EntityInfo<Self::Api>>;
+    #[storage_mapper("app_infos")]
+    fn app_infos(&self, address: &ManagedAddress) -> SingleValueMapper<AppInfo<Self::Api>>;
 }
