@@ -69,6 +69,8 @@ pub trait StrategyContract {
 
         let minted_payment = EsdtTokenPayment::new(app_info.receipt_token, 0, payment.amount.clone());
 
+        self.increase_app_receipt_token_supply(&app, payment.amount.clone());
+
         self.tx().to(&app).esdt(payment).transfer();
         self.tx().to(&caller).esdt(minted_payment).transfer();
     }
@@ -92,6 +94,12 @@ pub trait StrategyContract {
         require!(!self.app_infos(address).is_empty(), ERR_APP_NOT_REGISTERED);
 
         self.app_infos(address).get()
+    }
+
+    fn increase_app_receipt_token_supply(&self, app: &ManagedAddress, amount: BigUint) {
+        let mut app_info = self.get_app_info_or_fail(app);
+        app_info.receipt_token_supply += amount;
+        self.app_infos(app).set(app_info);
     }
 
     fn send_received_egld(&self, to: &ManagedAddress) {
