@@ -26,7 +26,7 @@ pub trait StrategyContract {
     #[upgrade]
     fn upgrade(&self) {}
 
-    /// Registers the entity smart contract and issues a new fungible token.
+    /// Registers the app address and issues a new fungible token.
     #[payable("*")]
     #[endpoint(registerApp)]
     fn register_app_endpoint(&self, contribution_token: TokenIdentifier, receipt_token_name: ManagedBuffer, receipt_token_ticker: ManagedBuffer) {
@@ -35,10 +35,10 @@ pub trait StrategyContract {
         let payment = self.call_value().egld_value().clone_value();
         require!(payment > 0, ERR_PAYMENT_ZERO);
 
-        let entity = self.blockchain().get_caller();
-        require!(self.app_infos(&entity).is_empty(), ERR_APP_REGISTERED_ALREADY);
+        let app = self.blockchain().get_caller();
+        require!(self.app_infos(&app).is_empty(), ERR_APP_REGISTERED_ALREADY);
 
-        self.app_infos(&entity).set(AppInfo {
+        self.app_infos(&app).set(AppInfo {
             contribution_token,
             receipt_token: Option::None,
             receipt_token_supply: BigUint::zero(),
@@ -48,24 +48,24 @@ pub trait StrategyContract {
             .to(ESDTSystemSCAddress)
             .typed(ESDTSystemSCProxy)
             .issue_and_set_all_roles(payment, receipt_token_name, receipt_token_ticker, EsdtTokenType::Fungible, TOKEN_DECIMALS)
-            .callback(self.callbacks().token_issue_callback(&entity))
+            .callback(self.callbacks().token_issue_callback(&app))
             .async_call_and_exit();
     }
 
-    /// Forwards payments to the entity smart contract and mints the token proportionally to the payment amount.
+    /// Forwards payments to the app address and mints the token proportionally to the payment amount.
     /// Minted tokens are then transferred to the caller.
     #[payable("*")]
     #[endpoint(participate)]
-    fn participate_endpoint(&self, entity: ManagedAddress) {
+    fn participate_endpoint(&self, app: ManagedAddress) {
         let caller = self.blockchain().get_caller();
-        let entity_info = self.get_app_info_or_fail(&entity);
-        require!(entity_info.receipt_token.is_some(), ERR_TOKEN_NOT_ISSUED);
+        let app_info = self.get_app_info_or_fail(&app);
+        require!(app_info.receipt_token.is_some(), ERR_TOKEN_NOT_ISSUED);
 
         let payment = self.call_value().single_esdt();
         require!(payment.amount > 0, ERR_PAYMENT_ZERO);
-        require!(payment.token_identifier == entity_info.contribution_token, ERR_TOKEN_INVALID);
+        require!(payment.token_identifier == app_info.contribution_token, ERR_TOKEN_INVALID);
 
-        let token = entity_info.receipt_token.unwrap();
+        let token = app_info.receipt_token.unwrap();
 
         self.tx()
             .to(ToSelf)
@@ -75,20 +75,20 @@ pub trait StrategyContract {
 
         let minted_payment = EsdtTokenPayment::new(token, 0, payment.amount.clone());
 
-        self.tx().to(&entity).esdt(payment).transfer();
+        self.tx().to(&app).esdt(payment).transfer();
         self.tx().to(&caller).esdt(minted_payment).transfer();
     }
 
     #[payable("*")]
     #[callback]
-    fn token_issue_callback(&self, entity: &ManagedAddress, #[call_result] result: ManagedAsyncCallResult<TokenIdentifier>) {
+    fn token_issue_callback(&self, app: &ManagedAddress, #[call_result] result: ManagedAsyncCallResult<TokenIdentifier>) {
         match result {
             ManagedAsyncCallResult::Ok(token_id) => {
-                let mut entity_info = self.get_app_info_or_fail(&entity);
-                entity_info.receipt_token = Option::Some(token_id);
-                self.app_infos(&entity).set(entity_info);
+                let mut app_info = self.get_app_info_or_fail(&app);
+                app_info.receipt_token = Option::Some(token_id);
+                self.app_infos(&app).set(app_info);
             }
-            ManagedAsyncCallResult::Err(_) => self.send_received_egld(&entity),
+            ManagedAsyncCallResult::Err(_) => self.send_received_egld(&app),
         }
     }
 
