@@ -14,5 +14,7 @@ fn it_registers_an_app() {
 
     contract.register_app(contribution_token, receipt_token_name, receipt_token_ticker);
 
-    assert!(true); // figure out how to check storage in type safe way
+    assert!(true); // TODO: figure out how to check storage in type safe way
 }
+
+// TODO: it_fails_when_app_registered_already
